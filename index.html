@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Form Gejala Malaria/DBD</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #a2d4ec, #f0f8ff);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background-color: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #2a5d84;
+    }
+
+    label {
+      display: block;
+      text-align: left;
+      margin-top: 15px;
+      color: #333;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+    .checkbox-group {
+      text-align: left;
+      margin-top: 10px;
+    }
+
+    .checkbox-group label {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #2a5d84;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #1f4766;
+    }
+
+    #map {
+      height: 250px;
+      width: 100%;
+      margin-top: 15px;
+      border-radius: 10px;
+    }
+
+    #status, #coords {
+      font-size: 14px;
+      margin-top: 10px;
+      color: #333;
+    }
+
+    #searchBox {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+    }
+
+    #searchInput {
+      flex-grow: 1;
+      padding: 10px;
+      border: 1px solid #aaa;
+      border-radius: 6px;
+    }
+
+    .logo {
+      width: 80px;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    
+    <h2>Form Gejala Malaria/DBD</h2>
+
+    <form id="form">
+      <label>Nama:</label>
+      <input type="text" id="nama" required>
+
+      <label>Alamat:</label>
+      <input type="text" id="alamat" required>
+
+      <label>Apa saja gejala yang dirasakan?</label>
+      <div class="checkbox-group" id="wadahGroup">
+        <label><input type="checkbox" value="Demam tinggi"> Demam tinggi</label>
+        <label><input type="checkbox" value="Nyeri otot / sendi"> Nyeri otot / sendi</label>
+        <label><input type="checkbox" value="Mual / muntah"> Mual / muntah</label>
+        <label><input type="checkbox" value="Sakit kepala"> Sakit kepala</label>
+        <label><input type="checkbox" value="Ruam atau bintik merah"> Ruam atau bintik merah</label>
+      </div>
+
+      <label style="margin-top:15px;">Keterangan tambahan (opsional)</label>
+      <input type="text" id="liter">
+
+      <div id="searchBox">
+        <input type="text" id="searchInput" placeholder="Cari lokasi (misal: Manado)">
+        <button type="button" onclick="searchLocation()">Cari</button>
+      </div>
+
+      <div id="map"></div>
+      <div id="coords">Lokasi: Belum dipilih</div>
+
+      <button type="button" onclick="kirimWA()">Kirim ke WhatsApp</button>
+    </form>
+    <p id="status"></p>
+  </div>
+
+  <script>
+    let map;
+    let marker;
+    let lat = "";
+    let lon = "";
+
+    function initMap() {
+      map = L.map('map').setView([-1.5, 124.8], 13); // Default view
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+      }).addTo(map);
+
+      // Try get current location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function (position) {
+          lat = position.coords.latitude;
+          lon = position.coords.longitude;
+          setMarker(lat, lon);
+          map.setView([lat, lon], 16);
+        });
+      }
+
+      // Allow click to change marker
+      map.on('click', function (e) {
+        lat = e.latlng.lat;
+        lon = e.latlng.lng;
+        setMarker(lat, lon);
+      });
+    }
+
+    function setMarker(lat, lon) {
+      if (marker) {
+        marker.setLatLng([lat, lon]);
+      } else {
+        marker = L.marker([lat, lon]).addTo(map);
+      }
+      document.getElementById("coords").innerText = `Lokasi: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    }
+
+    function searchLocation() {
+      const query = document.getElementById("searchInput").value;
+      if (!query) return;
+
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.length > 0) {
+            lat = parseFloat(data[0].lat);
+            lon = parseFloat(data[0].lon);
+            setMarker(lat, lon);
+            map.setView([lat, lon], 16);
+          } else {
+            alert("Lokasi tidak ditemukan!");
+          }
+        });
+    }
+
+    function kirimWA() {
+      const nama = document.getElementById('nama').value;
+      const alamat = document.getElementById('alamat').value;
+      const liter = document.getElementById('liter').value || "-";
+
+      let gejalaList = [];
+      document.querySelectorAll('#wadahGroup input[type="checkbox"]:checked').forEach(cb => {
+        gejalaList.push(cb.value);
+      });
+      const gejalaText = gejalaList.length > 0 ? gejalaList.join(', ') : "-";
+
+      const locationText = lat && lon
+        ? `📍 Lokasi: https://maps.google.com/?q=${lat},${lon}`
+        : "📍 Lokasi: Tidak tersedia";
+
+      const link = "https://wa.me/6281524219699?text=" +
+        encodeURIComponent("🦟 Laporan Gejala Malaria/DBD\n\n") +
+        encodeURIComponent("👤 Nama: " + nama + "\n") +
+        encodeURIComponent("🏠 Alamat: " + alamat + "\n") +
+        encodeURIComponent("🤒 Gejala: " + gejalaText + "\n") +
+        encodeURIComponent("📝 Keterangan Tambahan: " + liter + "\n") +
+        encodeURIComponent(locationText);
+
+      window.open(link, '_blank');
+    }
+
+    window.onload = initMap;
+  </script>
+</body>
+</html>
